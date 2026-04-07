@@ -1,0 +1,18 @@
+# Atur perilaku default untuk menangani akhir baris secara otomatis.
+# Ini akan menormalkan akhir baris menjadi LF di dalam repositori.
+# Saat checkout, ini akan mengubah LF ke akhir baris asli sistem operasi (CRLF di Windows).
+* text=auto
+
+# Deklarasikan file teks secara eksplisit untuk memastikan mereka dinormalisasi.
+*.zig  text
+*.py   text
+*.md   text
+*.ld   text
+*.cfg  text
+
+# Deklarasikan skrip khusus Windows agar selalu menggunakan CRLF.
+*.bat  text eol=crlf
+*.ps1  text eol=crlf
+
+# Tandai file biner agar tidak diubah.
+*.bin  binary

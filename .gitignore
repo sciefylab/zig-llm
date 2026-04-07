@@ -1,0 +1,38 @@
+# Build artifacts & Caches
+.zig-cache/
+zig-out/
+build/
+dist/
+target/
+iso_root/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Models - Penting untuk menjaga repositori tetap kecil
+models/*.zbrain
+models/*.gguf
+!models/.gitkeep
+
+# IDE & Editor Config
+.vscode/
+.idea/
+.cache/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Compiled objects and binaries
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.iso
+*.img
+*.bin
+*.elf
