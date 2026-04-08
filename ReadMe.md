@@ -25,34 +25,156 @@ CPU Dominance: Run 1.5B - 7B parameter models blazingly fast using purely local 
 Ultra-Low Memory Bandwidth: Read the absolute minimum amount of data from RAM during the Generation phase to solve the Decoding Bottleneck.
 MatMul-Free Architecture: In the final stages, replace drawer and expert calculations with pure addition (Shift-Add / In-Register LUTs), entirely bypassing the CPU's multiplier circuits.
 
+# 🗺️ MASTER TO-DO LIST (ROADMAP) - THE NEXT FRONTIER
 
-## 🗺️ MASTER TO-DO LIST (ROADMAP) - FINAL VISION
+## ✅ PHASE 0 - 3: The Engine & Architecture (SELESAI! 🚀)
 
-### ✅ PHASE 0 & 1: I/O, Senses, & Proof of Concept (Selesai!)
-- [x] Ekstraksi Matriks Kosakata & Clustering 151.936 kata ke 64 Laci Semantic (K-Means).
-- [x] Desain Format Biner Custom (Pohon Kosakata & Kamus O(1)).
-- [x] Bangun Telinga AI (*Encoder* Byte-Pair) & Pita Suara (*Decoder*) di Zig.
+- [x] Ekstraksi Matriks Kosakata (Qwen 0.5B) & Clustering 151,936 token ke 64 Laci Semantic
+- [x] Membedah matriks Dense MLP/FFN menjadi 8 "Pakar" (MoE) terisolasi
+- [x] Desain Format Biner Custom `.zbrain`: Arsip 2.35 GB penyatu organ AI
+  - ⚡ Zero-Copy Loader dalam ~500 ms
+- [x] Bangun Telinga (Encoder) & Pita Suara (Decoder) O(1) di Zig
+- [x] Implementasi SIMD AVX Router Inference & Scaled Dot-Product Attention dengan KV Cache
+- [x] **Pencapaian Puncak: Loop Autoregressive mencapai 121.6 Token/Detik murni di CPU lokal** 🎯
 
-### ✅ PHASE 2: The Master Architecture & MoE Surgery (Selesai!)
-- [x] Membedah matriks Dense `MLP/FFN` Qwen menjadi 8 "Pakar" (Experts) terisolasi.
-- [x] Ekstrak lapisan *Self-Attention* (Matriks Q, K, V, O).
-- [x] Desain **`.zbrain`**: Format file raksasa 2.35 GB penyatu seluruh organ AI.
-- [x] Bangun `brain_reader.zig`: Zero-Copy Loader 2.35 GB dalam **~500 milidetik**.
+---
 
-### ✅ PHASE 3: Memory, Context, & The Math (Selesai!)
-- [x] Tulis `kv_cache.zig`: Sistem memori jangka pendek (*Key-Value Cache*).
-- [x] Tulis `attention.zig`: Rumus murni *Scaled Dot-Product Attention* (Softmax $Q \times K^T \times V$) & RoPE.
-- [x] Implementasi *Autoregressive Generate Loop*: Loop AI stabil mencapai kecepatan **118 Token/Detik** murni di CPU lokal.
+## 🔵 PHASE 4: The "One-Click" Training Studio (Dense-to-MoE Upcycling)
+### → KITA MULAI DI SINI
 
-### 🔵 PHASE 4: The "One-Click" Training Studio (Dense-to-MoE Upcycling) -> *TARGET UTAMA SELANJUTNYA*
-*Visi: Menyediakan End-to-End Pipeline di mana pengguna cukup memasukkan ID Hugging Face, dan skrip akan otomatis melatih ulang model tersebut menjadi `.zbrain` yang cerdas dan sangat cepat untuk CPU.*
-- [ ] Buat folder `scripts/train/` di dalam repositori.
-- [ ] Tulis `upcycle_moe.py` (Python/PyTorch): Skrip *Knowledge Distillation* yang memaksa arsitektur 8 Pakar (MoE) dan 64 Laci Kosakata buatan kita untuk meniru kecerdasan model aslinya (Qwen/LLaMA) menggunakan dataset teks publik.
-- [ ] Integrasikan *Export Pipeline* agar setelah proses *training* selesai, skrip langsung memuntahkan file `.zbrain` versi final.
+**Tujuan:** Menyembuhkan "Halusinasi Alien" AI. Mengajarkan model Qwen agar terbiasa dengan arsitektur 8 Pakar (MoE) dan 64 Laci Kosakata buatan kita menggunakan teknik **Knowledge Distillation** (Guru-Murid).
 
-### 🔴 PHASE 5: Extreme Hardware Optimization (MatMul-Free)
-- [ ] *Quantization*: Modifikasi *pipeline* ekspor untuk mengubah matriks Float32 (FP32) menjadi Integer 8-bit (Q8_0) atau 4-bit (Q4) guna memangkas ukuran 2.35 GB menjadi ~600 MB.
-- [ ] Tulis `math_cpu.zig`: Implementasi instruksi perangkat keras murni (*Bitwise Shift-Add* atau *Look-Up Tables*) untuk menghapus operator `*` (perkalian) secara total dari seluruh sistem inferensi.
+### 📋 Tasks:
+
+#### 1. Persiapan Dataset
+- [ ] Buat skrip Python untuk mengunduh dataset teks berkualitas tinggi
+  - Dataset kandidat: Wikitext, Fine-Web, atau dataset kode
+  - Preprocessing & tokenization
+  - Data loader untuk training pipeline
+
+#### 2. Tulis `upcycle_moe.py` (PyTorch)
+- [ ] Bangun arsitektur **Student** (Murid):
+  - Model dengan Router MoE (mirip struktur `.zbrain`)
+  - 8 Expert modules
+  - 64-way hierarchical output layer
+- [ ] Load arsitektur **Teacher** (Guru):
+  - Model Qwen asli (Dense)
+  - Freeze weights (inference-only mode)
+- [ ] Implementasi Knowledge Distillation framework
+
+#### 3. Custom Loss Function
+- [ ] Tulis fungsi Loss di PyTorch yang menghukum Murid jika:
+  - **Output Distillation Loss**: 
+    - MSE Loss / KL Divergence antara logits Student vs Teacher
+  - **Load Balancing Loss**: 
+    - Router terlalu sering memilih Pakar yang sama
+    - Enforce distribusi merata ke-8 Pakar
+  - **Auxiliary Loss**: 
+    - Regularisasi untuk mencegah overfitting
+
+#### 4. Hierarchical Softmax Training
+- [ ] Latih ulang lapisan Output (Pohon Kosakata):
+  - Stage 1: Prediksi "Laci Kategori" (64 drawers)
+  - Stage 2: Prediksi "Kata" dalam laci
+  - Implementasi two-stage softmax
+- [ ] Evaluasi akurasi hierarchical prediction
+
+#### 5. The Exporter
+- [ ] Bangun `export_zbrain_v2.py`:
+  - Ekstrak trained weights dari PyTorch model
+  - Convert ke format `.zbrain v2`
+  - Validasi dimensi & integrity check
+- [ ] Automated testing: Load di Zig engine & verify outputs
+
+---
+
+## 🔴 PHASE 5: Extreme Hardware Optimization (Quantization & MatMul-Free)
+
+**Tujuan:** Memampatkan ukuran `.zbrain` dari 2.35 GB → ~600 MB, dan secara radikal membuang sirkuit perkalian (Multiplier) dari CPU saat Inference.
+
+### 📋 Tasks:
+
+#### 1. Q8_0 Binarization
+- [ ] Modifikasi `surgeon_compiler.py`:
+  - Convert semua matriks Float32 (FP32) → Integer 8-bit (int8)
+  - Hitung Scale Factor per tensor (Float16)
+  - Implementasi symmetric/asymmetric quantization
+- [ ] Validasi quantization error (< 1% degradasi)
+
+#### 2. Desain `.zbrain v3`
+- [ ] Update struktur header biner:
+  - Magic bytes untuk v3
+  - Metadata quantization (scale factors, zero points)
+  - Support mixed precision (Q8/Q4/FP16)
+- [ ] Dokumentasi format specification
+
+#### 3. MatMul-Free Math (`math_cpu.zig`)
+- [ ] Tulis ulang `dotProductSIMD` di Zig:
+  - **Bitwise Shift-Add**: 
+    - Approximasi perkalian dengan shift & penjumlahan
+    - Implementasi untuk int8 × int8
+  - **In-Register Look-Up Tables (LUT)**:
+    - Gunakan instruksi `pshufb` (AVX2)
+    - Precompute partial products
+    - Zero multiplication operations
+- [ ] Benchmark: FP32 vs Q8 vs MatMul-Free
+  - Throughput (tokens/sec)
+  - Latency per layer
+  - Memory bandwidth
+
+#### 4. Multithreading (Opsional)
+- [ ] Integrasikan `std.Thread.Pool` di Zig:
+  - Paralel Multi-Head Attention (Q, K, V computation)
+  - Paralel Expert processing dalam MoE
+  - Work stealing scheduler
+- [ ] NUMA-aware memory allocation (untuk multi-socket systems)
+- [ ] Benchmark scaling: 1 core → 4 cores → 8+ cores
+
+---
+
+## 📊 Performance Targets
+
+| Metric | Phase 3 (Current) | Phase 4 (Target) | Phase 5 (Target) |
+|--------|-------------------|------------------|------------------|
+| Throughput | 121.6 T/s | 100+ T/s (acceptable degradation) | 150+ T/s |
+| Model Size | 2.35 GB | 2.35 GB | ~600 MB |
+| Memory Usage | ~3 GB | ~3 GB | ~800 MB |
+| Perplexity | N/A (no training) | < 15 (post-distillation) | < 16 (post-quant) |
+| Multiplications | Full FP32 | Full FP32 | **Zero** ✨ |
+
+---
+
+## 🎯 Success Criteria
+
+### Phase 4:
+- ✅ Model dapat generate teks koheren (tidak random/alien)
+- ✅ Router load distribution: setiap expert digunakan 10-15% waktu
+- ✅ Validation loss turun minimal 80% dari initial
+
+### Phase 5:
+- ✅ File size < 700 MB
+- ✅ Inference throughput > 100 T/s (dengan Q8)
+- ✅ MatMul-free mode functional (meski slower dari SIMD FP32)
+- ✅ Perplexity degradation < 10% vs unquantized
+
+---
+
+## 💡 Research Notes
+
+**Phase 4 Challenges:**
+- Balancing distillation loss vs load balancing loss
+- Preventing mode collapse (all tokens → 1 expert)
+- Hierarchical softmax convergence
+
+**Phase 5 Challenges:**
+- Quantization-aware training might be needed
+- LUT size explosion (trade memory for speed)
+- Integer overflow handling in shift-add
+
+---
+
+**Next Immediate Step:** 
+📥 Setup dataset download script (`prepare_dataset.py`)
 
 ## 🚀 Cara Menjalankan
 

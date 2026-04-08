@@ -1,5 +1,6 @@
 const std = @import("std");
 const brain = @import("brain_reader.zig");
+const mem = @import("kv_cache.zig"); // <-- Ini yang tadi hilang!
 
 // ==========================================
 // 1. MESIN MATEMATIKA HARDWARE (SIMD)
@@ -66,7 +67,7 @@ fn applyRope(vec: []f32, head_dim: u32, pos: usize) void {
 // 2. FUNGSI EKSEKUSI ORGAN
 // ==========================================
 
-pub fn forwardAttention(allocator: std.mem.Allocator, attn: brain.Attention, hidden_state: []const f32, pos: usize, num_heads: u32, num_kv_heads: u32, head_dim: u32, hidden_dim: u32) ![]f32 {
+pub fn forwardAttention(allocator: std.mem.Allocator, attn: brain.Attention, cache: *mem.KVCache, layer_idx: usize, hidden_state: []const f32, pos: usize, num_heads: u32, num_kv_heads: u32, head_dim: u32, hidden_dim: u32) ![]f32 {
     const q = try allocator.alloc(f32, num_heads * head_dim);
     defer allocator.free(q);
     const k = try allocator.alloc(f32, num_kv_heads * head_dim);
@@ -87,12 +88,50 @@ pub fn forwardAttention(allocator: std.mem.Allocator, attn: brain.Attention, hid
         applyRope(k[h * head_dim .. (h + 1) * head_dim], head_dim, pos);
     }
 
+    // Simpan ke Ingatan AI (RAM)
+    cache.saveToken(layer_idx, pos, k, v);
+
     const kv_groups = num_heads / num_kv_heads;
+    const scale = 1.0 / @sqrt(@as(f32, @floatFromInt(head_dim)));
+
+    var scores = try allocator.alloc(f32, pos + 1);
+    defer allocator.free(scores);
+
+    // MENGHITUNG KECOCOKAN KATA INI DENGAN KATA-KATA SEBELUMNYA (SOFTMAX)
     for (0..num_heads) |h| {
+        const q_head = q[h * head_dim .. (h + 1) * head_dim];
         const kv_idx = h / kv_groups;
-        const v_head = v[kv_idx * head_dim .. (kv_idx + 1) * head_dim];
+        const head_offset = kv_idx * head_dim;
+
+        for (0..pos + 1) |t| {
+            const k_past = cache.k_cache[layer_idx][t * (num_kv_heads * head_dim) + head_offset .. t * (num_kv_heads * head_dim) + head_offset + head_dim];
+            scores[t] = dotProductSIMD(q_head, k_past) * scale;
+        }
+
+        var max_score: f32 = -999999.0;
+        for (0..pos + 1) |t| {
+            if (scores[t] > max_score) max_score = scores[t];
+        }
+
+        var sum_exp: f32 = 0.0;
+        for (0..pos + 1) |t| {
+            scores[t] = @exp(scores[t] - max_score);
+            sum_exp += scores[t];
+        }
+        for (0..pos + 1) |t| {
+            scores[t] /= sum_exp;
+        }
+
         const out_head = attention_out[h * head_dim .. (h + 1) * head_dim];
-        @memcpy(out_head, v_head);
+        @memset(out_head, 0.0);
+
+        for (0..pos + 1) |t| {
+            const v_past = cache.v_cache[layer_idx][t * (num_kv_heads * head_dim) + head_offset .. t * (num_kv_heads * head_dim) + head_offset + head_dim];
+            const weight = scores[t];
+            for (0..head_dim) |d| {
+                out_head[d] += weight * v_past[d];
+            }
+        }
     }
 
     const final_output = try allocator.alloc(f32, hidden_dim);
@@ -131,11 +170,16 @@ pub fn main() !void {
     const allocator = arena.allocator();
 
     std.debug.print("=========================================================\n", .{});
-    std.debug.print("      ZIG-LLM: THE AUTOREGRESSIVE CHAT LOOP              \n", .{});
+    std.debug.print("      ZIG-LLM: THE FINAL INTELLIGENCE LOOP               \n", .{});
     std.debug.print("=========================================================\n", .{});
 
     var ai = try brain.ZigBrain.load(allocator, "models/qwen_0.5b_moe.zbrain");
     defer ai.deinit();
+
+    // Nyalakan Sistem Ingatan (KV Cache)
+    const max_ingatan: usize = 100;
+    var cache = try mem.KVCache.init(allocator, max_ingatan, ai.num_layers, ai.num_kv_heads, ai.head_dim);
+    defer cache.deinit();
 
     var current_state = try allocator.alloc(f32, ai.hidden_dim);
     const temp_state = try allocator.alloc(f32, ai.hidden_dim);
@@ -150,7 +194,7 @@ pub fn main() !void {
 
     var total_timer = try std.time.Timer.start();
 
-    // LOOP GENERASI (AI MENGHASILKAN 10 KATA)
+    // LOOP GENERASI (AI MENGHASILKAN 10 KATA DENGAN INGATAN)
     for (0..10) |posisi_kata| {
 
         // A. Ambil Darah (Embeddings)
@@ -161,15 +205,15 @@ pub fn main() !void {
         for (0..ai.num_layers) |l| {
             const layer = ai.layers[l];
 
-            // --- JALUR MATA ---
+            // --- JALUR MATA (DENGAN INGATAN CACHE) ---
             rmsNorm(temp_state, current_state, layer.attn_norm, 1e-6);
-            const attn_out = try forwardAttention(allocator, layer.attn, temp_state, posisi_kata, ai.num_heads, ai.num_kv_heads, ai.head_dim, ai.hidden_dim);
+            const attn_out = try forwardAttention(allocator, layer.attn, &cache, l, temp_state, posisi_kata, ai.num_heads, ai.num_kv_heads, ai.head_dim, ai.hidden_dim);
             for (0..ai.hidden_dim) |d| {
                 current_state[d] += attn_out[d];
             }
             allocator.free(attn_out);
 
-            // --- JALUR OTAK ---
+            // --- JALUR OTAK (MoE ROUTER) ---
             rmsNorm(temp_state, current_state, layer.moe_norm, 1e-6);
 
             var best_expert: usize = 0;
@@ -222,7 +266,7 @@ pub fn main() !void {
         const w_end = ai.tokenizer.offsets[best_token + 1];
         std.debug.print("{s}", .{ai.tokenizer.blob[w_start..w_end]});
 
-        // F. Umpankan kembali ke input
+        // F. Umpankan kembali ke input untuk putaran selanjutnya
         input_token_id = best_token;
     }
 
@@ -230,7 +274,7 @@ pub fn main() !void {
     const tps = 10.0 / (total_ms / 1000.0);
 
     std.debug.print("\n\n=========================================================\n", .{});
-    std.debug.print(" DIAGNOSTIK KINERJA GENERATION LOOP:\n", .{});
+    std.debug.print(" DIAGNOSTIK KINERJA FINAL (DENGAN INGATAN PENUH):\n", .{});
     std.debug.print(" - Menghasilkan         : 10 Kata (Token)\n", .{});
     std.debug.print(" - Total Waktu          : {d:.3} Milidetik\n", .{total_ms});
     std.debug.print(" - Kecepatan (Token/Sec): {d:.1} T/s\n", .{tps});
