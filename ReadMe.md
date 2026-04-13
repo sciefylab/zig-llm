@@ -1,188 +1,118 @@
-🧠 ZIG-LLM: Hierarchical CPU-Native Inference Engine
-Motto: "Stop computing everything. Classify, route, and infer."
+# 🧠 ZIG-LLM: Cyber-Dual Brain HMoE
 
-1. The Problem (Background)
-Modern Large Language Models (like LLaMA, Qwen, GPT) are built on Dense Matrix Multiplication (Brute Force) architectures:
-
-To predict just 1 next word, the AI must calculate the probabilities of all 150,000 vocabulary tokens simultaneously.
-To process a single context word, the AI must activate all billions of parameters in its Feed-Forward Network (FFN), even if the word is a simple conjunction like "and".
-This Brute-Force method is highly efficient for GPUs (which have thousands of simple cores). However, it is devastating for local CPUs, as the CPU gets bottlenecked by the "Memory Wall" (the need to move gigabytes of matrix data from RAM to the CPU for every single token).
-
-2. Core Innovation (The Concept)
-Zig-LLM completely discards the Dense Brute-Force approach. Inspired by the human brain and Sparse Mixture-of-Experts (MoE) architectures, Zig-LLM utilizes Conditional Computation:
-
-Output Classification (Vocabulary Tree):
-Instead of a flat array, the vocabulary is clustered into semantic "Drawers" using K-Means Clustering. The AI first predicts the correct Category Drawer (e.g., the "Programming" drawer), and then only calculates the token probabilities inside that specific drawer. This reduces the computational load from 150,000 MatMuls to roughly ~124 MatMuls.
-Internal Routing (Classified Learning):
-The extremely heavy Feed-Forward Network (FFN) layers are surgically dismantled into tiny "Experts" (e.g., Coding Expert, Logic Expert, Grammar Expert). When a token enters, a fast Router written in Zig classifies the token and activates only 1 relevant Expert, leaving millions of other parameters uncomputed and resting in RAM.
-3. Ecosystem Architecture (The Pipeline)
-This project stands on two complementary programming languages:
-
-🐍 The Surgeon (Python): An offline script pipeline utilizing Hugging Face & Scikit-Learn to surgically dissect Dense matrices (.gguf / .safetensors), cluster the neurons, and export them into a custom, highly optimized binary architecture.
-⚡ The Racecar (Zig): A pure, online inference engine. It reads the custom binaries using Zero-Copy Memory Mapping (loading 500MB in < 0.1 seconds) and executes the Drawers/Experts using hardware-level AVX SIMD instructions and Pointer Chasing.
-4. Ultimate Goals
-CPU Dominance: Run 1.5B - 7B parameter models blazingly fast using purely local PC CPUs (No GPU required).
-Ultra-Low Memory Bandwidth: Read the absolute minimum amount of data from RAM during the Generation phase to solve the Decoding Bottleneck.
-MatMul-Free Architecture: In the final stages, replace drawer and expert calculations with pure addition (Shift-Add / In-Register LUTs), entirely bypassing the CPU's multiplier circuits.
-
-# 🗺️ MASTER TO-DO LIST (ROADMAP) - THE NEXT FRONTIER
-
-## ✅ PHASE 0 - 3: The Engine & Architecture (SELESAI! 🚀)
-
-- [x] Ekstraksi Matriks Kosakata (Qwen 0.5B) & Clustering 151,936 token ke 64 Laci Semantic
-- [x] Membedah matriks Dense MLP/FFN menjadi 8 "Pakar" (MoE) terisolasi
-- [x] Desain Format Biner Custom `.zbrain`: Arsip 2.35 GB penyatu organ AI
-  - ⚡ Zero-Copy Loader dalam ~500 ms
-- [x] Bangun Telinga (Encoder) & Pita Suara (Decoder) O(1) di Zig
-- [x] Implementasi SIMD AVX Router Inference & Scaled Dot-Product Attention dengan KV Cache
-- [x] **Pencapaian Puncak: Loop Autoregressive mencapai 121.6 Token/Detik murni di CPU lokal** 🎯
+> *"Stop computing everything. Classify, route, and infer."*
 
 ---
 
-## 🔵 PHASE 4: The "One-Click" Training Studio (Dense-to-MoE Upcycling)
-### → KITA MULAI DI SINI
+## 1. The Problem (Background)
+Modern Large Language Models (like LLaMA, Qwen, GPT) rely on **Dense Matrix Multiplication** (Brute Force). To predict just 1 next word, the AI must activate billions of parameters in its Feed-Forward Network (FFN), even for simple conjunctions. 
 
-**Tujuan:** Menyembuhkan "Halusinasi Alien" AI. Mengajarkan model Qwen agar terbiasa dengan arsitektur 8 Pakar (MoE) dan 64 Laci Kosakata buatan kita menggunakan teknik **Knowledge Distillation** (Guru-Murid).
+- **The Memory Wall:** This Brute-Force method is devastating for local CPUs due to the bottleneck of moving gigabytes of matrix data from RAM to the CPU for every single token.
+- **The Temperature Dilemma:** Traditional models struggle with balancing creativity and accuracy. A *high temperature* makes the AI creative but prone to math errors; a *low temperature* makes it logical but robotic.
 
-### 📋 Tasks:
+## 2. Core Innovation: The Cyber-Dual Brain
+Zig-LLM discards the Dense Brute-Force approach. Inspired by biological lateralization, Zig-LLM utilizes a **Hierarchical Mixture-of-Experts (HMoE)** with 2-Level Gating:
 
-#### 1. Persiapan Dataset
-- [ ] Buat skrip Python untuk mengunduh dataset teks berkualitas tinggi
-  - Dataset kandidat: Wikitext, Fine-Web, atau dataset kode
-  - Preprocessing & tokenization
-  - Data loader untuk training pipeline
+### Level 1: The Hemispheres (Lateralization)
+A primary router evaluates the prompt and determines the domain:
+*   **Sinister (Left Brain):** Handles rigid data, rules, exact math, and certainty.
+*   **Dexter (Right Brain):** Handles fluid data, speculation, poetry, and narrative.
 
-#### 2. Tulis `upcycle_moe.py` (PyTorch)
-- [ ] Bangun arsitektur **Student** (Murid):
-  - Model dengan Router MoE (mirip struktur `.zbrain`)
-  - 8 Expert modules
-  - 64-way hierarchical output layer
-- [ ] Load arsitektur **Teacher** (Guru):
-  - Model Qwen asli (Dense)
-  - Freeze weights (inference-only mode)
-- [ ] Implementasi Knowledge Distillation framework
+### Level 2: The Specialists (Sub-Experts)
+Each hemisphere contains isolated experts (Zero Compute for unselected experts):
 
-#### 3. Custom Loss Function
-- [ ] Tulis fungsi Loss di PyTorch yang menghukum Murid jika:
-  - **Output Distillation Loss**: 
-    - MSE Loss / KL Divergence antara logits Student vs Teacher
-  - **Load Balancing Loss**: 
-    - Router terlalu sering memilih Pakar yang sama
-    - Enforce distribusi merata ke-8 Pakar
-  - **Auxiliary Loss**: 
-    - Regularisasi untuk mencegah overfitting
+**Left Brain Department:**
+*   **The Calculator:** Operations, algebra, pure logic (True/False).
+*   **The Syntactician:** Programming syntax (Zig, C, Python) and grammar rules.
 
-#### 4. Hierarchical Softmax Training
-- [ ] Latih ulang lapisan Output (Pohon Kosakata):
-  - Stage 1: Prediksi "Laci Kategori" (64 drawers)
-  - Stage 2: Prediksi "Kata" dalam laci
-  - Implementasi two-stage softmax
-- [ ] Evaluasi akurasi hierarchical prediction
+**Right Brain Department:**
+*   **The Futurist:** Technological predictions, sci-fi concepts, and theories.
+*   **The Storyteller:** Narrative, emotions, metaphors, and AI personification.
 
-#### 5. The Exporter
-- [ ] Bangun `export_zbrain_v2.py`:
-  - Ekstrak trained weights dari PyTorch model
-  - Convert ke format `.zbrain v2`
-  - Validasi dimensi & integrity check
-- [ ] Automated testing: Load di Zig engine & verify outputs
+## 3. Dynamic Control Mechanism (The Brain Logic)
+To solve the Temperature Dilemma, Zig-LLM implements **Adaptive Temperature**. The system calculates the ideal sampling temperature dynamically based on the Router's decision:
 
----
+$$T_{final} = (W_{left} \cdot T_{exact}) + (W_{right} \cdot T_{creative})$$
 
-## 🔴 PHASE 5: Extreme Hardware Optimization (Quantization & MatMul-Free)
+*   If $W_{left}$ is dominant $\rightarrow$ Output is cold, rigid, and strictly accurate.
+*   If $W_{right}$ is dominant $\rightarrow$ Output is warm, varied, and imaginative.
 
-**Tujuan:** Memampatkan ukuran `.zbrain` dari 2.35 GB → ~600 MB, dan secara radikal membuang sirkuit perkalian (Multiplier) dari CPU saat Inference.
+## 4. Ecosystem Architecture (The Pipeline)
 
-### 📋 Tasks:
+🐍 **The Surgeon (Python):**
+An offline script pipeline utilizing Hugging Face & Scikit-Learn to dissect Dense matrices, cluster vocabulary into "Drawers", and export them into a custom highly optimized `.zbrain` binary.
 
-#### 1. Q8_0 Binarization
-- [ ] Modifikasi `surgeon_compiler.py`:
-  - Convert semua matriks Float32 (FP32) → Integer 8-bit (int8)
-  - Hitung Scale Factor per tensor (Float16)
-  - Implementasi symmetric/asymmetric quantization
-- [ ] Validasi quantization error (< 1% degradasi)
+⚡ **The Racecar (Zig):**
+A pure, online inference engine. It reads custom binaries using Zero-Copy Memory Mapping and executes the Drawers/Experts using hardware-level SIMD instructions and Pointer Chasing.
 
-#### 2. Desain `.zbrain v3`
-- [ ] Update struktur header biner:
-  - Magic bytes untuk v3
-  - Metadata quantization (scale factors, zero points)
-  - Support mixed precision (Q8/Q4/FP16)
-- [ ] Dokumentasi format specification
+## 5. Inference Flow (The Loop)
 
-#### 3. MatMul-Free Math (`math_cpu.zig`)
-- [ ] Tulis ulang `dotProductSIMD` di Zig:
-  - **Bitwise Shift-Add**: 
-    - Approximasi perkalian dengan shift & penjumlahan
-    - Implementasi untuk int8 × int8
-  - **In-Register Look-Up Tables (LUT)**:
-    - Gunakan instruksi `pshufb` (AVX2)
-    - Precompute partial products
-    - Zero multiplication operations
-- [ ] Benchmark: FP32 vs Q8 vs MatMul-Free
-  - Throughput (tokens/sec)
-  - Latency per layer
-  - Memory bandwidth
+1.  **Input Vectorizer:** Converts the prompt into initial coordinates.
+2.  **Lvl 1 Gating:** Router determines the % involvement of Left vs Right.
+3.  **Lvl 2 Gating:** Sub-router selects the most relevant specialist (e.g., The Syntactician).
+4.  **HMoE Processing:** Only the selected expert matrix computes the data.
+5.  **Temp Calculation:** Calculates ideal temperature based on route weights.
+6.  **Clustered Sampling:** Selects the next token from the correct domain vocabulary drawer.
+7.  **Auto-Regression:** Feeds the new word back into the KV-Cache.
 
-#### 4. Multithreading (Opsional)
-- [ ] Integrasikan `std.Thread.Pool` di Zig:
-  - Paralel Multi-Head Attention (Q, K, V computation)
-  - Paralel Expert processing dalam MoE
-  - Work stealing scheduler
-- [ ] NUMA-aware memory allocation (untuk multi-socket systems)
-- [ ] Benchmark scaling: 1 core → 4 cores → 8+ cores
+## 🗺️ MASTER TO-DO LIST (ROADMAP)
+
+### ✅ PHASE 1: The Foundation & The "Final Boss" (COMPLETED 🚀)
+*   [x] **Arsitektur Dasar:** Desain HMoE (Router & Experts).
+*   [x] **I/O Engine:** Bangun Telinga (Encoder) & Pita Suara (Decoder) O(1) di Zig.
+*   [x] **Attention:** Implementasi Causal Self-Attention (Mata Batin Model).
+*   [x] **Backprop:** Menulis kalkulus manual untuk Softmax dan matriks Q, K, V.
+*   [x] **Stabilisasi:** Implementasi Residual Connections untuk menyembuhkan "Amnesia Identitas" (Halusinasi).
+*   [x] **Benchmark:** Loss mencapai 0.0000 pada dataset lokal & kecepatan CPU absolut ~10.000+ Tokens/Detik.
 
 ---
 
-## 📊 Performance Targets
+### 🔵 PHASE 2: The Real World Scale-Up
+*Tujuan: Mengangkat status model dari "Bayi Jenius" (Toy Dataset) menjadi LLM sesungguhnya.*
 
-| Metric | Phase 3 (Current) | Phase 4 (Target) | Phase 5 (Target) |
-|--------|-------------------|------------------|------------------|
-| Throughput | 121.6 T/s | 100+ T/s (acceptable degradation) | 150+ T/s |
-| Model Size | 2.35 GB | 2.35 GB | ~600 MB |
-| Memory Usage | ~3 GB | ~3 GB | ~800 MB |
-| Perplexity | N/A (no training) | < 15 (post-distillation) | < 16 (post-quant) |
-| Multiplications | Full FP32 | Full FP32 | **Zero** ✨ |
+#### 1. Byte-Pair Encoding (BPE) Tokenizer
+- [ ] Ganti ToyTokenizer (Word-level) dengan BPE Sub-word tokenizer.
+- [ ] Tulis skrip Python untuk melatih BPE vocab (misal: 10.000 token) dari dataset nyata.
+- [ ] Update `tokenizer.zig` agar bisa memecah dan menggabung kata (misal: "rintik" + "nya").
 
----
+#### 2. Multi-Head Attention (MHA)
+- [ ] Upgrade Single-Head ke Multi-Head Attention.
+- [ ] Pecah dimensi Q, K, V (contoh: `HIDDEN_DIM` 128 dibagi menjadi 4 Heads @ 32).
+- [ ] Implementasi Concatenation hasil 4 Heads sebelum masuk ke Router.
 
-## 🎯 Success Criteria
+#### 3. Deep Layers & Scaling
+- [ ] Arsitektur N-Lapis (Looping `[Attention -> Router -> Expert]` x 4 Layers).
+- [ ] Ganti aktivasi ReLU dengan SiLU / SwiGLU.
+- [ ] Tambahkan Layer Normalization (RMSNorm) untuk kestabilan training.
 
-### Phase 4:
-- ✅ Model dapat generate teks koheren (tidak random/alien)
-- ✅ Router load distribution: setiap expert digunakan 10-15% waktu
-- ✅ Validation loss turun minimal 80% dari initial
-
-### Phase 5:
-- ✅ File size < 700 MB
-- ✅ Inference throughput > 100 T/s (dengan Q8)
-- ✅ MatMul-free mode functional (meski slower dari SIMD FP32)
-- ✅ Perplexity degradation < 10% vs unquantized
+#### 4. The "TinyStories" Real Dataset
+- [ ] Download dataset "TinyStories".
+- [ ] Kompilasi jutaan token ke dalam `.hmoe`.
+- [ ] Training hingga Loss konvergen.
 
 ---
 
-## 💡 Research Notes
+### 🔴 PHASE 3: Extreme Hardware Optimization (The Racecar)
+*Tujuan: Mengubah engine dari "Bisa Jalan" menjadi "Sangat Cepat untuk Skala Besar".*
 
-**Phase 4 Challenges:**
-- Balancing distillation loss vs load balancing loss
-- Preventing mode collapse (all tokens → 1 expert)
-- Hierarchical softmax convergence
-
-**Phase 5 Challenges:**
-- Quantization-aware training might be needed
-- LUT size explosion (trade memory for speed)
-- Integer overflow handling in shift-add
+- [ ] **Real KV-Cache System:** Mencegah kalkulasi ulang Query/Key dari kata masa lalu.
+- [ ] **SIMD Vectorization (@Vector):** Rombak MatMul menggunakan `@Vector` (AVX2/AVX-512) untuk paralelisasi level CPU register.
+- [ ] **MatMul-Free & Quantization:** Eksplorasi format int8 (Q8) dan Look-Up Tables (LUT) untuk mem-bypass sirkuit Multiplier CPU.
 
 ---
 
-**Next Immediate Step:** 
-📥 Setup dataset download script (`prepare_dataset.py`)
+## 🚀 How to Run
 
-## 🚀 Cara Menjalankan
+### Requirements
+- **Zig Compiler:** [Download Versi Master/Terbaru](https://ziglang.org/learn/getting-started/)
+- **Python 3.10+:** Hanya digunakan untuk pemrosesan/kompilasi dataset awal.
 
-### Persyaratan
-* [Zig Compiler](https://ziglang.org/download/) (Versi terbaru/Master)
-* Python 3.10+ (untuk script Surgeon)
+### Build & Inference
+Jalankan perintah berikut untuk mengoptimalkan performa melalui *compiler flags*:
 
-### Build
-Untuk performa maksimal (mengaktifkan optimasi compiler):
 ```bash
-zig build run -Doptimize=ReleaseFast
+# 1. Melatih Model dari Nol (Training)
+zig build run -Doptimize=ReleaseFast -- train-dualbrain
+
+# 2. Menguji Kecerdasan Model (Inference / Generation)
+zig build run -Doptimize=ReleaseFast -- infer-dualbrain

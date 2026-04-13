@@ -14,7 +14,10 @@ __pycache__/
 # Models - Penting untuk menjaga repositori tetap kecil
 models/*.zbrain
 models/*.gguf
+models/*.zdict
 !models/.gitkeep
+!data/.gitkeep
+data/*
 
 # IDE & Editor Config
 .vscode/
