@@ -1,7 +1,7 @@
 const std = @import("std");
 
 // ==========================================================
-// 🚀 CYBER-DUAL BRAIN HMOE DATALOADER
+// 🚀 CYBER-DUAL BRAIN HMOE DATALOADER (Memory Stream)
 // ==========================================================
 pub const Hemisphere = enum(u8) { left = 0, right = 1 };
 pub const Expert = enum(u8) { calculator = 0, syntactician = 1, futurist = 2, storyteller = 3 };
@@ -15,7 +15,6 @@ pub const HMoEBatch = struct {
 
 pub const DualBrainDataloader = struct {
     allocator: std.mem.Allocator,
-    file_buffer: []u8,
     batches: []HMoEBatch,
     position: usize = 0,
 
@@ -23,58 +22,59 @@ pub const DualBrainDataloader = struct {
         var file = try std.fs.cwd().openFile(bin_path, .{});
         defer file.close();
 
-        const file_size = try file.getEndPos();
-        const buffer = try allocator.alloc(u8, file_size);
-        errdefer allocator.free(buffer);
+        // 🔥 FIX ZIG 0.15.2: Baca seluruh file ke memori sekaligus (Sangat cepat & Anti-Error)
+        // Kita alokasikan maksimal 500MB untuk berjaga-jaga
+        const file_data = try file.readToEndAlloc(allocator, 500 * 1024 * 1024);
+        defer allocator.free(file_data); // Langsung dibebaskan setelah parsing selesai
 
-        const bytes_read = try file.readAll(buffer);
-        if (bytes_read != file_size) return error.ReadError;
+        // Buat stream reader virtual dari memori RAM
+        var fbs = std.io.fixedBufferStream(file_data);
+        var reader = fbs.reader();
 
-        var count: usize = 0;
-        var offset: usize = 0;
-        while (offset < file_size) {
-            if (offset + 6 > file_size) break;
-            const in_len = std.mem.readInt(u16, buffer[offset + 2 .. offset + 4][0..2], .little);
-            const tgt_len = std.mem.readInt(u16, buffer[offset + 4 .. offset + 6][0..2], .little);
-            offset += 6 + (@as(usize, in_len) * 4) + (@as(usize, tgt_len) * 4);
-            count += 1;
+        var batch_list: std.ArrayList(HMoEBatch) = .empty;
+        errdefer {
+            for (batch_list.items) |b| {
+                allocator.free(b.inputs);
+                allocator.free(b.targets);
+            }
+            batch_list.deinit(allocator);
         }
 
-        const batches = try allocator.alloc(HMoEBatch, count);
-        errdefer allocator.free(batches);
+        while (true) {
+            // 1. BACA HEADER (Skema 8-Byte)
+            const hemi_val = reader.readByte() catch |err| switch (err) {
+                error.EndOfStream => break, // File selesai, keluar dari loop
+                else => return err,
+            };
+            const exp_val = try reader.readByte();
+            const in_len = try reader.readInt(u16, .little);
+            const tgt_len = try reader.readInt(u16, .little);
+            _ = try reader.readInt(u16, .little); // Buang 2 byte padding/reserved
 
-        offset = 0;
-        for (0..count) |i| {
-            const hemi_val = buffer[offset];
-            const exp_val = buffer[offset + 1];
-            const in_len = std.mem.readInt(u16, buffer[offset + 2 .. offset + 4][0..2], .little);
-            const tgt_len = std.mem.readInt(u16, buffer[offset + 4 .. offset + 6][0..2], .little);
-            offset += 6;
+            // 2. VALIDASI KEAMANAN
+            if (hemi_val > 1 or exp_val > 3) return error.CorruptDataOrMisaligned;
 
+            // 3. BACA PAYLOAD INPUTS
             const inputs = try allocator.alloc(u32, in_len);
-            for (0..in_len) |j| {
-                inputs[j] = std.mem.readInt(u32, buffer[offset + j * 4 .. offset + j * 4 + 4][0..4], .little);
-            }
-            offset += @as(usize, in_len) * 4;
+            for (0..in_len) |j| inputs[j] = try reader.readInt(u32, .little);
 
+            // 4. BACA PAYLOAD TARGETS
             const targets = try allocator.alloc(u32, tgt_len);
-            for (0..tgt_len) |j| {
-                targets[j] = std.mem.readInt(u32, buffer[offset + j * 4 .. offset + j * 4 + 4][0..4], .little);
-            }
-            offset += @as(usize, tgt_len) * 4;
+            for (0..tgt_len) |j| targets[j] = try reader.readInt(u32, .little);
 
-            batches[i] = HMoEBatch{
+            // 5. SIMPAN KE BATCH
+            try batch_list.append(allocator, HMoEBatch{
                 .hemisphere = @enumFromInt(hemi_val),
                 .expert = @enumFromInt(exp_val),
                 .inputs = inputs,
                 .targets = targets,
-            };
+            });
         }
 
         return DualBrainDataloader{
             .allocator = allocator,
-            .file_buffer = buffer,
-            .batches = batches,
+            // Konversi ke static slice (Oper Allocator)
+            .batches = try batch_list.toOwnedSlice(allocator),
         };
     }
 
@@ -95,6 +95,5 @@ pub const DualBrainDataloader = struct {
             self.allocator.free(batch.targets);
         }
         self.allocator.free(self.batches);
-        self.allocator.free(self.file_buffer);
     }
 };

@@ -1,119 +1,178 @@
 const std = @import("std");
-const brain = @import("../core/brain_reader.zig");
-const math = @import("../core/math.zig");
-const moe = @import("../core/moe_reader.zig");
 
-pub const InferenceEngine = struct {
+// 🔥 UBAH KE 256 DI SINI JIKA INGIN MEMBESARKAN KAPASITAS OTAK AI
+const HIDDEN_DIM: usize = 256;
+const VOCAB_SIZE: usize = 5000;
+const MAX_SEQ_LEN: usize = 64;
+
+pub const DualBrainEngine = struct {
     allocator: std.mem.Allocator,
-    model: *brain.ZigBrain,
 
-    // KV-Cache: Memori jangka pendek agar AI ingat kata sebelumnya
-    k_cache: []f32,
-    v_cache: []f32,
+    mock_embeddings: []f32,
+    pos_embeddings: []f32,
+    intent_weights: []f32,
+    router_l1_weights: []f32,
+    router_l2_left_weights: []f32,
+    router_l2_right_weights: []f32,
+    expert_calc_w: []f32,
+    expert_syntax_w: []f32,
+    expert_future_w: []f32,
+    expert_story_w: []f32,
+    lm_head_w: []f32,
 
-    pub fn init(allocator: std.mem.Allocator, model: *brain.ZigBrain) !InferenceEngine {
-        const kv_size = model.num_layers * 1024 * (model.num_kv_heads * model.head_dim);
-        const k_cache = try allocator.alloc(f32, kv_size);
-        const v_cache = try allocator.alloc(f32, kv_size);
-        @memset(k_cache, 0.0);
-        @memset(v_cache, 0.0);
+    pub fn load(allocator: std.mem.Allocator, path: []const u8) !DualBrainEngine {
+        const file = try std.fs.cwd().openFile(path, .{});
+        defer file.close();
+        const d = HIDDEN_DIM;
 
-        return InferenceEngine{
+        const engine = DualBrainEngine{
             .allocator = allocator,
-            .model = model,
-            .k_cache = k_cache,
-            .v_cache = v_cache,
+            .mock_embeddings = try allocator.alloc(f32, VOCAB_SIZE * d),
+            .pos_embeddings = try allocator.alloc(f32, MAX_SEQ_LEN * d),
+            .intent_weights = try allocator.alloc(f32, d * d),
+            .router_l1_weights = try allocator.alloc(f32, d * 2),
+            .router_l2_left_weights = try allocator.alloc(f32, d * 2),
+            .router_l2_right_weights = try allocator.alloc(f32, d * 2),
+            .expert_calc_w = try allocator.alloc(f32, d * d),
+            .expert_syntax_w = try allocator.alloc(f32, d * d),
+            .expert_future_w = try allocator.alloc(f32, d * d),
+            .expert_story_w = try allocator.alloc(f32, d * d),
+            .lm_head_w = try allocator.alloc(f32, VOCAB_SIZE * d),
         };
+
+        const weights = [_][]f32{ engine.mock_embeddings, engine.pos_embeddings, engine.intent_weights, engine.router_l1_weights, engine.router_l2_left_weights, engine.router_l2_right_weights, engine.expert_calc_w, engine.expert_syntax_w, engine.expert_future_w, engine.expert_story_w, engine.lm_head_w };
+        for (weights) |w| _ = try file.readAll(std.mem.sliceAsBytes(w));
+
+        return engine;
     }
 
-    pub fn predictNextToken(self: *InferenceEngine, token_id: u32, pos: usize) !u32 {
-        const h_dim = self.model.hidden_dim;
-        const x = try self.allocator.alloc(f32, h_dim);
-        defer self.allocator.free(x);
+    pub fn deinit(self: *DualBrainEngine) void {
+        const weights = [_][]f32{ self.mock_embeddings, self.pos_embeddings, self.intent_weights, self.router_l1_weights, self.router_l2_left_weights, self.router_l2_right_weights, self.expert_calc_w, self.expert_syntax_w, self.expert_future_w, self.expert_story_w, self.lm_head_w };
+        for (weights) |w| self.allocator.free(w);
+    }
 
-        // 1. EMBEDDING LOOKUP (Ambil makna kata dari RAM)
-        const embed_offset = @as(usize, token_id) * h_dim;
-        @memcpy(x, self.model.embed_weights[embed_offset .. embed_offset + h_dim]);
+    pub const InferResult = struct {
+        id: u32,
+        is_right: bool,
+        temp: f32,
+    };
 
-        // 2. LAYER PROCESSING LOOP
-        for (0..self.model.num_layers) |l| {
-            const layer = &self.model.layers[l];
+    pub fn inferFast(self: *DualBrainEngine, pool_sum: []const f32, seq_len: usize) !InferResult {
+        const d = HIDDEN_DIM;
 
-            // --- BLOK ATTENTION (Pemahaman Konteks) ---
-            const x_norm = try self.allocator.alloc(f32, h_dim);
-            defer self.allocator.free(x_norm);
+        const ts = try self.allocator.alloc(f32, d);
+        defer self.allocator.free(ts);
 
-            math.rmsNorm(x_norm, x, layer.attn_norm, 1e-6);
-
-            const layer_kv_offset = l * 1024 * (self.model.num_kv_heads * self.model.head_dim);
-
-            try math.computeAttention(
-                self.allocator,
-                x_norm,
-                layer.attn,
-                self.k_cache[layer_kv_offset..],
-                self.v_cache[layer_kv_offset..],
-                pos,
-                1024,
-                self.model.num_heads,
-                self.model.num_kv_heads,
-                self.model.head_dim,
-            );
-
-            math.addVector(x, x_norm); // Residual Connection 1
-
-            // --- BLOK HMOE (Cyber-Dual Brain Routing) ---
-            const moe_norm = try self.allocator.alloc(f32, h_dim);
-            defer self.allocator.free(moe_norm);
-
-            math.rmsNorm(moe_norm, x, layer.moe_norm, 1e-6);
-
-            // Routing Hirarkis: Pilih Pakar -> Eksekusi SIMD FFN
-            try moe.forwardHMoE(self.allocator, layer, moe_norm, h_dim);
-
-            math.addVector(x, moe_norm); // Residual Connection 2
+        const scale = 1.0 / @as(f32, @floatFromInt(seq_len));
+        @memset(ts, 0.0);
+        for (0..d) |out_i| {
+            for (0..d) |in_i| ts[out_i] += (pool_sum[in_i] * scale) * self.intent_weights[out_i * d + in_i];
         }
 
-        // 3. FINAL NORMALIZATION
-        math.rmsNorm(x, x, self.model.final_norm, 1e-6);
+        var l1 = [2]f32{ 0.0, 0.0 };
+        for (0..d) |i| {
+            l1[0] += ts[i] * self.router_l1_weights[i * 2 + 0];
+            l1[1] += ts[i] * self.router_l1_weights[i * 2 + 1];
+        }
+        const is_dex = l1[1] > l1[0];
 
-        // 4. CLUSTERED VOCAB PREDICTION (Stop computing 150k words!)
-        // Prediksi laci kosakata mana yang benar, lalu tebak kata di dalamnya.
-        return self.predictFromClusters(x);
-    }
+        // 🛡️ STABLE SOFTMAX: Trik Matematika Anti-NaN (Exploding Logits)
+        const max_l1 = @max(l1[0], l1[1]);
+        const exp_l0 = @exp(l1[0] - max_l1);
+        const exp_l1 = @exp(l1[1] - max_l1);
+        const w_left = exp_l0 / (exp_l0 + exp_l1);
+        const w_right = exp_l1 / (exp_l0 + exp_l1);
 
-    fn predictFromClusters(self: *InferenceEngine, x: []f32) u32 {
-        var max_centroid_score: f32 = -1e9;
-        var best_cluster_idx: usize = 0;
+        const final_temp = (w_left * 0.1) + (w_right * 0.8);
 
-        // Cari laci (cluster) yang paling relevan
-        for (0..self.model.num_vocab_clusters) |i| {
-            const score = math.dotProductSIMD(x, self.model.vocab_centroids[i * self.model.hidden_dim .. (i + 1) * self.model.hidden_dim]);
-            if (score > max_centroid_score) {
-                max_centroid_score = score;
-                best_cluster_idx = i;
+        const l2w = if (is_dex) self.router_l2_right_weights else self.router_l2_left_weights;
+        var l2 = [2]f32{ 0.0, 0.0 };
+        for (0..d) |i| {
+            l2[0] += ts[i] * l2w[i * 2 + 0];
+            l2[1] += ts[i] * l2w[i * 2 + 1];
+        }
+        var exp_w: []f32 = undefined;
+        if (!is_dex) {
+            exp_w = if (l2[0] > l2[1]) self.expert_calc_w else self.expert_syntax_w;
+        } else {
+            exp_w = if (l2[0] > l2[1]) self.expert_future_w else self.expert_story_w;
+        }
+
+        const out = try self.allocator.alloc(f32, d);
+        defer self.allocator.free(out);
+        for (0..d) |oi| {
+            var sum: f32 = 0.0;
+            for (0..d) |ii| sum += ts[ii] * exp_w[oi * d + ii];
+            out[oi] = (if (sum > 0.0) sum else 0.0) + ts[oi];
+        }
+
+        var mv: f32 = -1e9;
+        var best_v: u32 = 0;
+        for (0..VOCAB_SIZE) |v| {
+            var s: f32 = 0.0;
+            for (0..d) |h| s += out[h] * self.lm_head_w[v * d + h];
+            s /= final_temp;
+
+            if (s > mv) {
+                mv = s;
+                best_v = @intCast(v);
             }
         }
 
-        // Hanya hitung skor untuk kata-kata di dalam laci terpilih
-        const cluster = self.model.vocab_clusters[best_cluster_idx];
-        var max_word_score: f32 = -1e9;
-        var best_token: u32 = 0;
-
-        for (0..cluster.num_words) |w_idx| {
-            const word_weight = cluster.weights[w_idx * self.model.hidden_dim .. (w_idx + 1) * self.model.hidden_dim];
-            const score = math.dotProductSIMD(x, word_weight);
-            if (score > max_word_score) {
-                max_word_score = score;
-                best_token = cluster.token_ids[w_idx];
-            }
-        }
-
-        return best_token;
+        return InferResult{ .id = best_v, .is_right = is_dex, .temp = final_temp };
     }
 
-    pub fn deinit(self: *InferenceEngine) void {
-        self.allocator.free(self.k_cache);
-        self.allocator.free(self.v_cache);
+    pub fn generate(self: *DualBrainEngine, start: []const u32, max: usize, tokenizer: anytype) !void {
+        const d = HIDDEN_DIM;
+
+        const pool_sum = try self.allocator.alloc(f32, d);
+        defer self.allocator.free(pool_sum);
+        @memset(pool_sum, 0.0);
+
+        var current_len: usize = 0;
+
+        for (start) |tid| {
+            const sid = @min(tid, VOCAB_SIZE - 1);
+            const sp = @min(current_len, MAX_SEQ_LEN - 1);
+            for (0..d) |i| pool_sum[i] += self.mock_embeddings[sid * d + i] + self.pos_embeddings[sp * d + i];
+            current_len += 1;
+        }
+
+        std.debug.print("\n🤖: ", .{});
+        var timer = try std.time.Timer.start();
+        var generated_count: usize = 0;
+
+        var left_hits: usize = 0;
+        var right_hits: usize = 0;
+        var avg_temp: f32 = 0.0;
+
+        for (0..max) |_| {
+            const result = try self.inferFast(pool_sum, current_len);
+            const w = tokenizer.decode(result.id);
+
+            if (std.mem.eql(u8, w, "<|END|>") or std.mem.eql(u8, w, "[UNK]")) break;
+
+            std.debug.print("{s} ", .{w});
+
+            if (result.is_right) right_hits += 1 else left_hits += 1;
+            avg_temp += result.temp;
+
+            const sid = @min(result.id, VOCAB_SIZE - 1);
+            const sp = @min(current_len, MAX_SEQ_LEN - 1);
+            for (0..d) |i| pool_sum[i] += self.mock_embeddings[sid * d + i] + self.pos_embeddings[sp * d + i];
+
+            current_len += 1;
+            generated_count += 1;
+        }
+
+        const elapsed_ns = timer.read();
+        const elapsed_s = @as(f32, @floatFromInt(elapsed_ns)) / 1_000_000_000.0;
+        const tps = @as(f32, @floatFromInt(generated_count)) / @max(elapsed_s, 0.0001);
+
+        if (generated_count > 0) avg_temp /= @as(f32, @floatFromInt(generated_count));
+        const dom_rute = if (right_hits > left_hits) "Kanan (Imajinatif)" else "Kiri (Eksak)";
+
+        std.debug.print("\n[📊 Telemetri -> Dominan: {s} | T-Rata: {d:.2}]", .{ dom_rute, avg_temp });
+        std.debug.print("\n[⏱️ Benchmark -> {d} token | {d:.4} detik | {d:.2} TPS]\n", .{ generated_count, elapsed_s, tps });
     }
 };

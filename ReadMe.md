@@ -1,103 +1,89 @@
-# 🧠 ZIG-LLM: Cyber-Dual Brain HMoE
 
-> *"Stop computing everything. Classify, route, and infer."*
+# 🧠 ZIG-LLM: The Interlingua Cyber-Dual Brain HMoE
+
+> **Motto:** *"Stop computing everything. Translate, Route, and Infer."*
+
+**Visi:** Membangun *Natural Language Compiler* yang memisahkan tata bahasa dari ilmu pengetahuan, mengeliminasi komputasi $O(N^2)$ yang mubazir, dan meniru spesialisasi biologis otak manusia untuk performa CPU yang ekstrem.
 
 ---
 
-## 1. The Problem (Background)
-Modern Large Language Models (like LLaMA, Qwen, GPT) rely on **Dense Matrix Multiplication** (Brute Force). To predict just 1 next word, the AI must activate billions of parameters in its Feed-Forward Network (FFN), even for simple conjunctions. 
+## 1. Konsep Filosofis (The Problem & The Innovation)
 
-- **The Memory Wall:** This Brute-Force method is devastating for local CPUs due to the bottleneck of moving gigabytes of matrix data from RAM to the CPU for every single token.
-- **The Temperature Dilemma:** Traditional models struggle with balancing creativity and accuracy. A *high temperature* makes the AI creative but prone to math errors; a *low temperature* makes it logical but robotic.
+### Masalah di LLM Modern
+* **"Sup Matriks"**: Arsitektur Transformer konvensional memproses aturan tata bahasa, struktur kalimat, dan fakta sains di dalam matriks yang sama. 
+* **Komputasi Berlebih**: Untuk menebak satu kata, model menggunakan *Self-Attention* yang mengkalkulasi ulang seluruh masa lalu ($O(N^2)$), membakar RAM dan CPU secara eksponensial.
+* **Suhu Statis**: Menggunakan *temperature* (suhu) yang statis membuat model sering kali berhalusinasi saat disuruh berhitung, atau terlalu kaku saat disuruh bercerita.
 
-## 2. Core Innovation: The Cyber-Dual Brain
-Zig-LLM discards the Dense Brute-Force approach. Inspired by biological lateralization, Zig-LLM utilizes a **Hierarchical Mixture-of-Experts (HMoE)** with 2-Level Gating:
+### Solusi Zig-LLM (The Interlingua Method)
+Zig-LLM bertindak seperti Kompiler (GCC/Zig Build). Ia menerjemahkan bahasa manusia menjadi **"Sinyal Niat" (IR/Intermediate Representation)** terlebih dahulu. Sinyal ini kemudian dilempar ke inti otak (HMoE) yang murni berisi pakar logika dan fakta, tanpa perlu lagi memikirkan *grammar*. Hasil dari pakar tersebut diterjemahkan kembali ke bahasa manusia di pintu keluar.
 
-### Level 1: The Hemispheres (Lateralization)
-A primary router evaluates the prompt and determines the domain:
-*   **Sinister (Left Brain):** Handles rigid data, rules, exact math, and certainty.
-*   **Dexter (Right Brain):** Handles fluid data, speculation, poetry, and narrative.
+---
 
-### Level 2: The Specialists (Sub-Experts)
-Each hemisphere contains isolated experts (Zero Compute for unselected experts):
+## 2. Blueprint Arsitektur (The 3-Layer Pipeline)
 
-**Left Brain Department:**
-*   **The Calculator:** Operations, algebra, pure logic (True/False).
-*   **The Syntactician:** Programming syntax (Zig, C, Python) and grammar rules.
+Aliran data di dalam Zig-LLM terbagi menjadi tiga lapisan fisik dan logis yang terisolasi:
 
-**Right Brain Department:**
-*   **The Futurist:** Technological predictions, sci-fi concepts, and theories.
-*   **The Storyteller:** Narrative, emotions, metaphors, and AI personification.
+### 🟢 Lapis 1: Translator IN (Frontend / Niat Eksplisit)
+Mengubah teks manusia menjadi *Intent Vector* (Sinyal Niat) secara instan.
+* **Pembunuh Attention:** Membuang fungsi *Self-Attention* yang lambat. Menggantinya dengan **Mean Pooling**, yaitu merata-ratakan seluruh vektor kata dalam input menjadi satu "Vektor Konteks Global" yang menghemat komputasi menjadi linier $O(N)$.
+* **Soft Routing:** Mengizinkan semua teks masuk (tanpa validasi kaku). Matriks Intent akan mendeteksi: *Apakah ini perintah matematika? Pertanyaan fakta? Atau sekadar basa-basi?*
 
-## 3. Dynamic Control Mechanism (The Brain Logic)
-To solve the Temperature Dilemma, Zig-LLM implements **Adaptive Temperature**. The system calculates the ideal sampling temperature dynamically based on the Router's decision:
+### 🔵 Lapis 2: The Core Engine (Hierarchical Mixture-of-Experts)
+Mesin penalaran murni. Vektor Niat dari Lapis 1 dievaluasi oleh sistem 2-Level Gating (Pakar):
+* **Level 1: The Hemispheres (Lateralisasi Kiri/Kanan)**
+  * **Sinister (Kiri):** Memproses niat eksak, aturan pasti, dan perhitungan matriks absolut.
+  * **Dexter (Kanan):** Memproses niat spekulatif, imajinasi, dan pengetahuan umum.
+* **Level 2: The Specialists (Sub-Expert) — *Zero Compute* untuk pakar yang mati**
+  * **The Calculator (Kiri):** Ahli angka dan logika.
+  * **The Syntactician (Kiri):** Ahli pemformatan, perbaikan struktur, dan kode.
+  * **The Futurist (Kanan):** Ahli penjelasan fakta sains, prediksi, dan teori.
+  * **The Storyteller (Kanan):** Ahli narasi, metafora, dan obrolan kasual.
+
+### 🔴 Lapis 3: Translator OUT (Backend / Juru Bicara)
+Menerjemahkan *Vektor Solusi* dari pakar kembali menjadi kalimat manusia (Output).
+* **Clustered Vocabulary:** Memiliki "Laci Kata" yang terpisah. Jika Otak Kiri yang menyala, probabilitas keluarnya kata-kata angka, simbol logika, dan bahasa baku akan meroket tajam.
+
+---
+
+## 3. Mekanisme Otak Kognitif (The Brain Logic)
+
+### A. Graceful Degradation (Soft Fallback)
+Zig-LLM tidak pernah *crash* atau memarahi pengguna jika inputnya tidak jelas (misal: "Halo", "Kucing").
+* Jika Vektor Niat gagal menemukan perintah spesifik, Router L1 & L2 akan secara *default* melempar prompt tersebut ke **Otak Kanan $\rightarrow$ The Storyteller**. 
+* Pakar ini dilatih khusus untuk memberikan respons *chit-chat* yang pendek, aman, dan anggun untuk memancing pengguna memperjelas niatnya.
+
+### B. Adaptive Temperature (Suhu Adaptif Dinamis)
+Suhu generasi teks (kreativitas) tidak lagi diatur manual oleh pengguna, melainkan dihitung secara matematis oleh model setiap kali Router mengambil keputusan:
 
 $$T_{final} = (W_{left} \cdot T_{exact}) + (W_{right} \cdot T_{creative})$$
 
-*   If $W_{left}$ is dominant $\rightarrow$ Output is cold, rigid, and strictly accurate.
-*   If $W_{right}$ is dominant $\rightarrow$ Output is warm, varied, and imaginative.
-
-## 4. Ecosystem Architecture (The Pipeline)
-
-🐍 **The Surgeon (Python):**
-An offline script pipeline utilizing Hugging Face & Scikit-Learn to dissect Dense matrices, cluster vocabulary into "Drawers", and export them into a custom highly optimized `.zbrain` binary.
-
-⚡ **The Racecar (Zig):**
-A pure, online inference engine. It reads custom binaries using Zero-Copy Memory Mapping and executes the Drawers/Experts using hardware-level SIMD instructions and Pointer Chasing.
-
-## 5. Inference Flow (The Loop)
-
-1.  **Input Vectorizer:** Converts the prompt into initial coordinates.
-2.  **Lvl 1 Gating:** Router determines the % involvement of Left vs Right.
-3.  **Lvl 2 Gating:** Sub-router selects the most relevant specialist (e.g., The Syntactician).
-4.  **HMoE Processing:** Only the selected expert matrix computes the data.
-5.  **Temp Calculation:** Calculates ideal temperature based on route weights.
-6.  **Clustered Sampling:** Selects the next token from the correct domain vocabulary drawer.
-7.  **Auto-Regression:** Feeds the new word back into the KV-Cache.
-
-## 🗺️ MASTER TO-DO LIST (ROADMAP)
-
-### ✅ PHASE 1: The Foundation & The "Final Boss" (COMPLETED 🚀)
-*   [x] **Arsitektur Dasar:** Desain HMoE (Router & Experts).
-*   [x] **I/O Engine:** Bangun Telinga (Encoder) & Pita Suara (Decoder) O(1) di Zig.
-*   [x] **Attention:** Implementasi Causal Self-Attention (Mata Batin Model).
-*   [x] **Backprop:** Menulis kalkulus manual untuk Softmax dan matriks Q, K, V.
-*   [x] **Stabilisasi:** Implementasi Residual Connections untuk menyembuhkan "Amnesia Identitas" (Halusinasi).
-*   [x] **Benchmark:** Loss mencapai 0.0000 pada dataset lokal & kecepatan CPU absolut ~10.000+ Tokens/Detik.
+* **Skenario A:** Prompt: *"Hitung 50 + 40"*. Router melempar ke Kiri ($W_{left}$ tinggi). Model secara otomatis membekukan suhunya menjadi `0.1` agar jawaban eksak dan tidak berhalusinasi.
+* **Skenario B:** Prompt: *"Buatkan puisi"*. Router melempar ke Kanan ($W_{right}$ tinggi). Suhu otomatis naik ke `0.8` agar output kaya akan kosa kata.
 
 ---
 
-### 🔵 PHASE 2: The Real World Scale-Up
-*Tujuan: Mengangkat status model dari "Bayi Jenius" (Toy Dataset) menjadi LLM sesungguhnya.*
+## 4. ROADMAP & TO-DO LIST (Tahap Eksekusi)
 
-#### 1. Byte-Pair Encoding (BPE) Tokenizer
-- [ ] Ganti ToyTokenizer (Word-level) dengan BPE Sub-word tokenizer.
-- [ ] Tulis skrip Python untuk melatih BPE vocab (misal: 10.000 token) dari dataset nyata.
-- [ ] Update `tokenizer.zig` agar bisa memecah dan menggabung kata (misal: "rintik" + "nya").
+Berikut adalah panduan pengerjaan langkah demi langkah untuk melakukan *upgrade* dari basis kode saat ini menuju arsitektur V3.0:
 
-#### 2. Multi-Head Attention (MHA)
-- [ ] Upgrade Single-Head ke Multi-Head Attention.
-- [ ] Pecah dimensi Q, K, V (contoh: `HIDDEN_DIM` 128 dibagi menjadi 4 Heads @ 32).
-- [ ] Implementasi Concatenation hasil 4 Heads sebelum masuk ke Router.
+### 🛠️ Fase 1: Data Mastery & Pipeline (Python)
+**Fokus:** Mempersiapkan dataset yang memiliki pemisahan intent dan *fallback*.
+- [ ] **Klasifikasi Rute Otomatis:** Modifikasi `hf_to_hmoe.py` untuk secara otomatis memberikan label Header 8-Byte (`hemi_val`, `exp_val`) berdasarkan kata kunci *(Jelaskan, Hitung, Perbaiki)*.
+- [ ] **Injeksi Data Soft-Fallback:** Masukkan 5.000+ baris dataset *chit-chat* kasual dan labeli secara absolut ke *Right Brain (Storyteller)* agar AI pandai berbasa-basi saat intent tidak jelas.
+- [ ] **Cross-Lingual Blending:** Tarik 20% dataset bahasa Indonesia ke dalam skrip agar matriks tokenizer dan *embedding* selaras antara Inggris dan Indonesia.
+- [ ] **Generate `.hmoe`:** Kompilasi dataset baru.
 
-#### 3. Deep Layers & Scaling
-- [ ] Arsitektur N-Lapis (Looping `[Attention -> Router -> Expert]` x 4 Layers).
-- [ ] Ganti aktivasi ReLU dengan SiLU / SwiGLU.
-- [ ] Tambahkan Layer Normalization (RMSNorm) untuk kestabilan training.
+### ⚡ Fase 2: Zig Core Refactoring (The Engine)
+**Fokus:** Menghancurkan *bottleneck* $O(N^2)$ dan mengaktifkan Mean Pooling.
+- [ ] **Hapus Attention:** Nuke/Hapus seluruh blok fungsi `computeSelfAttention` dari `trainer_dual_brain.zig`.
+- [ ] **Bangun Translator IN:** Tulis fungsi `computeIntentContext` yang melakukan penjumlahan & rata-rata (*Mean Pooling*) pada token input, lalu diproyeksikan dengan matriks `intent_weights`.
+- [ ] **Hubungkan Ulang Router:** Pastikan input yang dikonsumsi oleh `router_l1_weights` berasal dari hasil akhir `computeIntentContext`.
 
-#### 4. The "TinyStories" Real Dataset
-- [ ] Download dataset "TinyStories".
-- [ ] Kompilasi jutaan token ke dalam `.hmoe`.
-- [ ] Training hingga Loss konvergen.
-
----
-
-### 🔴 PHASE 3: Extreme Hardware Optimization (The Racecar)
-*Tujuan: Mengubah engine dari "Bisa Jalan" menjadi "Sangat Cepat untuk Skala Besar".*
-
-- [ ] **Real KV-Cache System:** Mencegah kalkulasi ulang Query/Key dari kata masa lalu.
-- [ ] **SIMD Vectorization (@Vector):** Rombak MatMul menggunakan `@Vector` (AVX2/AVX-512) untuk paralelisasi level CPU register.
-- [ ] **MatMul-Free & Quantization:** Eksplorasi format int8 (Q8) dan Look-Up Tables (LUT) untuk mem-bypass sirkuit Multiplier CPU.
+### 🧠 Fase 3: Logika Inferensi (Zig Main)
+**Fokus:** Membuat model "hidup", mandiri, dan responsif.
+- [ ] **Clean-up Main:** Pastikan tidak ada validasi blokir kaku di `main.zig`. Semua teks harus bisa masuk ke model.
+- [ ] **Implementasi Adaptive Temp:** Pada fungsi `infer()`, suntikkan rumus matematika $T_{final}$ berdasarkan nilai `l1[0]` (Kiri) dan `l1[1]` (Kanan).
+- [ ] **State Accumulator:** Di dalam fungsi `generate()`, simpan state vektor hasil pooling agar tidak perlu dihitung ulang dari awal setiap kali token baru ditebak (Sangat menghemat siklus CPU).
 
 ---
 
@@ -116,3 +102,4 @@ zig build run -Doptimize=ReleaseFast -- train-dualbrain
 
 # 2. Menguji Kecerdasan Model (Inference / Generation)
 zig build run -Doptimize=ReleaseFast -- infer-dualbrain
+
