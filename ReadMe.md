@@ -93,10 +93,15 @@ python scripts/preprocessing/hf_to_hmoe.py
 Bash
 
 zig build run -Doptimize=ReleaseFast -- train-dualbrain
+
+zig build run -Doptimize=ReleaseFast -Dtarget=native -- train-dualbrain 1
+
 3. Inference
 Bash
 
 zig build run -Doptimize=ReleaseFast -- infer-dualbrain
+
+
 Roadmap
  Meningkatkan HIDDEN_DIM (64 → 256/512) untuk mengurangi mode collapse
  Menambahkan Repetition Penalty pada LM Head
