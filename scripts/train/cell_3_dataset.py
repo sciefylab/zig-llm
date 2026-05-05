@@ -1,97 +1,111 @@
 import os
 import json
-import re
 import torch
-from collections import Counter
 from datasets import load_dataset
+from tokenizers import Tokenizer
+from tokenizers.models import BPE
+from tokenizers.trainers import BpeTrainer
+from tokenizers.pre_tokenizers import Metaspace
 from tqdm.auto import tqdm
 
+try:
+    from google.colab import drive
+    COLAB_MODE = True
+except ImportError:
+    COLAB_MODE = False
+
 # ==========================================
-# ⚙️ KONFIGURASI DATASET V5 (STATE SPACE)
+# ⚙️ KONFIGURASI PATH & DATASET V7 (BPE)
 # ==========================================
-DRIVE_BASE = "/content/drive/MyDrive/Dual-Brain"
+if COLAB_MODE: drive.mount('/content/drive')
+
+DRIVE_BASE = "/content/drive/MyDrive/Dual-Brain" if COLAB_MODE else "./local_workspace"
 DRIVE_DATA = os.path.join(DRIVE_BASE, "data")
 os.makedirs(DRIVE_DATA, exist_ok=True)
 
-VOCAB_FILE = os.path.join(DRIVE_DATA, "vocab_v5.json")
-DATASET_FILE = os.path.join(DRIVE_DATA, "dataset_v5.pt")
+VOCAB_FILE = os.path.join(DRIVE_DATA, "vocab_v7.json")
+DATASET_FILE = os.path.join(DRIVE_DATA, "dataset_v7.pt")
 
-# 🚀 THE UPGRADE: Kita paksa AI mengingat 32 kata ke belakang (Bukan 8 lagi!)
-# Karena ini State Space Model, RAM GPU tidak akan meledak meski ini dinaikkan.
 SEQ_LEN = 32
-MAX_VOCAB = 15000
+VOCAB_SIZE = 15000
 MAX_SAMPLES_PER_DOMAIN = 10000
 
 SOURCES = [
-    # Hemisphere 0 (KIRI / EXACT)
-    {"repo": "microsoft/orca-math-word-problems-200k", "split": "train", "key_in": "question", "key_out": "answer", "exp": 0, "hemi": 0, "name": "Math"},
-    {"repo": "iamtarun/python_code_instructions_18k_alpaca", "split": "train", "key_in": "instruction", "key_out": "output", "exp": 1, "hemi": 0, "name": "Code"},
-    # Hemisphere 1 (KANAN / IMAGINASI)
-    {"repo": "sciq", "split": "train", "key_in": "question", "key_out": "support", "exp": 2, "hemi": 1, "name": "Science"},
-    {"repo": "roneneldan/TinyStories", "split": "train", "key_in": "text", "key_out": None, "exp": 3, "hemi": 1, "name": "Story"},
+    {"repo": "microsoft/orca-math-word-problems-200k", "split": "train", "key_in": "question", "key_out": "answer", "exp": 0, "hemi": 0},
+    {"repo": "iamtarun/python_code_instructions_18k_alpaca", "split": "train", "key_in": "instruction", "key_out": "output", "exp": 1, "hemi": 0},
+    {"repo": "sciq", "split": "train", "key_in": "question", "key_out": "support", "exp": 2, "hemi": 1},
+    {"repo": "roneneldan/TinyStories", "split": "train", "key_in": "text", "key_out": None, "exp": 3, "hemi": 1},
 ]
 
-def clean_text(text):
-    if not isinstance(text, str): return ""
-    text = text.lower()
-    text = re.sub(r"([.,!?;:\"'()\[\]\+\-\*/=<>])", r" \1 ", text)
-    return re.sub(r'\s+', ' ', text).strip().split()
-
 def main():
-    print("🔍 TAHAP 1: Mengunduh data dan menghitung kosa kata...")
-    word_counter = Counter()
-    raw_data = []
+    print("==================================================")
+    print(" 📦 MEMBANGUN DATASET V7 (BPE SUBWORD ERA)")
+    print("==================================================\n")
+
+    # 1. KUMPULKAN TEKS MENTAH
+    print("🔍 TAHAP 1: Mengunduh data untuk melatih Tokenizer...")
+    raw_texts = []
+    metadata = []
 
     for src in SOURCES:
-        print(f"   -> Memproses domain: {src['name']}...")
         ds = load_dataset(src["repo"], split=src["split"], streaming=True)
         count = 0
-
         for entry in ds:
             if count >= MAX_SAMPLES_PER_DOMAIN: break
 
+            text = str(entry.get(src["key_in"]) or "")
             if src["key_out"] is not None:
-                words = clean_text(entry.get(src["key_in"])) + ["<SEP>"] + clean_text(entry.get(src["key_out"]))
-            else:
-                words = clean_text(entry.get(src["key_in"]))
+                text += " <SEP> " + str(entry.get(src["key_out"]) or "")
 
-            # Hanya ambil data yang panjangnya melebihi SEQ_LEN
-            if len(words) > SEQ_LEN + 1:
-                word_counter.update(words)
-                raw_data.append({"words": words, "exp": src["exp"], "hemi": src["hemi"]})
-                count += 1
+            raw_texts.append(text)
+            metadata.append({"exp": src["exp"], "hemi": src["hemi"]})
+            count += 1
 
-    print("\n📝 TAHAP 2: Membangun Kamus (Vocab)...")
-    vocab = {"<PAD>": 0, "<UNK>": 1, "<SEP>": 2}
-    for w, _ in word_counter.most_common(MAX_VOCAB - len(vocab)):
-        if w not in vocab: vocab[w] = len(vocab)
+    # 2. LATIH TOKENIZER BPE (Seperti GPT)
+    print("\n📝 TAHAP 2: Melatih BPE Tokenizer dari nol...")
+    tokenizer = Tokenizer(BPE(unk_token="<UNK>"))
 
-    with open(VOCAB_FILE, "w", encoding="utf-8") as f: json.dump(vocab, f)
-    print(f"   -> {len(vocab)} kata berhasil disimpan ke {VOCAB_FILE}")
+    # 🚀 FIX: Disesuaikan dengan HuggingFace tokenizers versi terbaru
+    tokenizer.pre_tokenizer = Metaspace(replacement=" ")
 
-    print("\n⏱️ TAHAP 3: Membuat Garis Waktu (Sequence Timeline)...")
+    trainer = BpeTrainer(special_tokens=["<PAD>", "<UNK>", "<SEP>"], vocab_size=VOCAB_SIZE)
+    tokenizer.train_from_iterator(raw_texts, trainer=trainer)
+
+    # Ekstrak Vocab dan ubah Metaspace kembali ke Spasi literal (agar Zig mudah membacanya)
+    raw_vocab = tokenizer.get_vocab()
+    clean_vocab = {}
+    for token, id in raw_vocab.items():
+        clean_token = token.replace(" ", " ") # Ganti simbol metaspace dengan spasi asli
+        clean_vocab[clean_token] = id
+
+    with open(VOCAB_FILE, "w", encoding="utf-8") as f:
+        json.dump(clean_vocab, f)
+    print(f"   ✅ {len(clean_vocab)} sub-kata berhasil disimpan ke {VOCAB_FILE}")
+
+    # 3. BUAT DATASET TENSOR
+    print("\n⏱️ TAHAP 3: Membuat Garis Waktu Tensor (BPE Sequence)...")
     seqs_list, targets_list, hemis_list, experts_list = [], [], [], []
 
-    for data in tqdm(raw_data, desc="Memotong sekuens"):
-        tokens = [vocab.get(w, 1) for w in data["words"]]
+    for text, meta in tqdm(zip(raw_texts, metadata), total=len(raw_texts), desc="Memotong sekuens"):
+        # Encode teks utuh menggunakan BPE Tokenizer yang baru dilatih
+        tokens = tokenizer.encode(text).ids
 
-        # Mengambil riwayat 32 kata untuk menebak kata ke-33
-        for i in range(len(tokens) - SEQ_LEN):
-            seqs_list.append(tokens[i : i + SEQ_LEN])
-            targets_list.append(tokens[i + SEQ_LEN])
-            hemis_list.append(data["hemi"])
-            experts_list.append(data["exp"])
+        if len(tokens) > SEQ_LEN + 1:
+            for i in range(len(tokens) - SEQ_LEN):
+                seqs_list.append(tokens[i : i + SEQ_LEN])
+                targets_list.append(tokens[i + SEQ_LEN])
+                hemis_list.append(meta["hemi"])
+                experts_list.append(meta["exp"])
 
     print("\n💾 TAHAP 4: Menyimpan ke PyTorch Tensor (.pt)...")
     dataset_dict = {
-        "windows": torch.tensor(seqs_list, dtype=torch.long), # Tetap pakai key "windows" agar cocok dengan train_v5.py
+        "windows": torch.tensor(seqs_list, dtype=torch.long),
         "targets": torch.tensor(targets_list, dtype=torch.long),
         "hemis": torch.tensor(hemis_list, dtype=torch.long),
         "experts": torch.tensor(experts_list, dtype=torch.long),
     }
     torch.save(dataset_dict, DATASET_FILE)
-    print(f"✅ Selesai! Tersimpan di: {DATASET_FILE}")
-    print(f"   -> Jumlah sampel siap latih: {len(seqs_list)}")
+    print(f" ✅ DATASET V7 SELESAI DIBUAT: {len(seqs_list)} sampel siap latih!")
 
 if __name__ == "__main__":
     main()
